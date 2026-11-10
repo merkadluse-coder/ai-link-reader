@@ -127,3 +127,47 @@ def test_youtube_player_embed_is_not_exposed_as_media():
     assert result["ok"] and result["type"] == "video" and result["body_text"] == "作者简介"
     assert result["media"]["video_url"] is None and not result["media"]["has_video"]
     assert "VIDEO_MEDIA_UNAVAILABLE" in {warning["code"] for warning in result["warnings"]}
+
+
+def test_telegram_reads_one_public_post_and_its_media():
+    def handle(request):
+        assert request.headers["host"] == "t.me" and request.url.path == "/example/42"
+        assert request.url.query == b"embed=1"
+        return httpx.Response(200, text="""
+          <div data-post="example/41">
+            <div class="tgme_widget_message_text">相邻帖子</div>
+            <video class="tgme_widget_message_video" src="https://cdn1.telesco.pe/file/other.mp4"></video>
+          </div>
+          <div data-post="example/42">
+            <div class="tgme_widget_message_author"><a>作者</a></div>
+            <div class="tgme_widget_message_text">第一行<br>第二行 &amp; 文本</div>
+            <video class="tgme_widget_message_video" src="https://cdn1.telesco.pe/file/target.mp4"></video>
+          </div>
+        """, headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page("分享 https://t.me/s/example/42", output="json", include_media=True)
+    assert result["ok"] and result["body_text"] == "第一行\n第二行 & 文本"
+    assert result["author"] == "作者" and result["canonical_url"] == "https://t.me/example/42"
+    assert result["media"]["video_url"] == "https://cdn1.telesco.pe/file/target.mp4"
+
+
+def test_snapchat_uses_the_matching_video_object():
+    work = "Spotlight_Requested"
+    base = "https://www.snapchat.com"
+    canonical = f"{base}/@author/spotlight/{work}"
+    state = [
+        {"@type": "VideoObject", "url": f"{base}/spotlight/Spotlight_Another", "name": "推荐",
+         "contentUrl": "https://bolt-gcdn.sc-cdn.net/other"},
+        {"@type": "VideoObject", "url": canonical, "name": "作品",
+         "contentUrl": "https://bolt-gcdn.sc-cdn.net/target", "duration": "PT8S"},
+    ]
+
+    def handle(request):
+        assert request.url.path == f"/spotlight/{work}"
+        scripts = "".join(f'<script type="application/ld+json">{json.dumps(item)}</script>' for item in state)
+        return httpx.Response(200, text=scripts, headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page(f"{base}/spotlight/{work}", output="json", include_media=True)
+    assert result["ok"] and result["canonical_url"] == canonical
+    assert result["media"]["duration_ms"] == 8000
+    assert result["media"]["video_url"] == "https://bolt-gcdn.sc-cdn.net/target"

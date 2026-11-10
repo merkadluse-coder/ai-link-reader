@@ -1,6 +1,6 @@
 ---
 name: social-video-transcript
-description: Read public Toutiao, Douyin, Bilibili, Xiaohongshu, WeChat Official Account, Kuaishou, Weibo, Xigua Video, and YouTube links or App share text. Extract article and note text, video descriptions, and media references for optional downstream OCR or speech recognition.
+description: Read public Toutiao, Douyin, Bilibili, Xiaohongshu, WeChat Official Account, Kuaishou, Weibo, Xigua Video, YouTube, Telegram channel posts, and Snapchat Spotlight links or App share text. Extract article and note text, video descriptions, and media references for optional downstream OCR or speech recognition.
 ---
 
 # 社媒内容读取

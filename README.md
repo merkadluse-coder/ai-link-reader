@@ -14,12 +14,14 @@
 - **小红书** · `xiaohongshu.com` 公开笔记网页链接和 `xhslink.com/o/…` App 短链。已验证笔记正文、配图和部分视频笔记的媒体地址。请保留平台原始分享链接。
 - **微信公众号** · `mp.weixin.qq.com/s/…` 文章直链及带该链接的分享文案。已验证正文和配图。
 - **快手** · `kuaishou.com/short-video/<作品ID>` 网页直链和 `v.kuaishou.com/…` App 短链。已验证公开视频地址及 MP4 内的音视频轨。
-
 - **微博** · `weibo.com/2/detail/<博文ID>` 网页直链，以及 `m.weibo.cn/status/…` 手机分享链接。读取公开博文正文、作者和配图。
 - **西瓜视频** · `www.ixigua.com/<作品ID>` 网页直链，以及 `m.ixigua.com/video/…` 和 `m.ixigua.com/dx/…` 手机作品页。读取标题、作者、简介、封面和时长。
 - **YouTube** · `youtube.com/watch?v=…` 网页直链和 `youtu.be/…` 分享短链。读取标题、频道、简介、封面和时长。
 
-微博视频、短链 `t.cn`、西瓜视频 App 短链 `v.ixigua.com`、知乎和微信视频号还没有通过对应内容的实测。西瓜视频和 YouTube 目前覆盖作品信息，音视频地址与字幕另行验证。
+- **Telegram** · `t.me/<公开频道>/<帖子ID>` 分享直链和 `t.me/s/<公开频道>/<帖子ID>` 网页入口。已验证公开帖子的正文、配图和视频，按链接读取单条帖子。
+- **Snapchat** · `snapchat.com/spotlight/<作品ID>` 分享直链和含 `/@作者/spotlight/` 的网页直链。已验证公开 Spotlight 的简介、封面及 MP4 音视频轨。
+
+微博视频、短链 `t.cn`、西瓜视频 App 短链 `v.ixigua.com`、知乎和微信视频号还没有通过对应内容的实测。西瓜视频和 YouTube 目前覆盖作品信息，音视频地址与字幕另行验证。Facebook、Instagram、TikTok、WhatsApp 频道更新和 LinkedIn 等入口继续收集可复验的公开单条样本。
 
 只读取可公开访问的内容。入口能否读取取决于作品状态和平台要求。视频描述是作者提供的文字，图片文字和视频口播可分别交由外部 OCR 和 ASR 服务处理。基础读取无需模型或云端识别账户。
 
