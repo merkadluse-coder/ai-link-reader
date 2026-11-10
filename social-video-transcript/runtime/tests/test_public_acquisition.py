@@ -201,3 +201,40 @@ def test_instagram_rejects_a_different_canonical_post():
 
     with pytest.raises(ReaderError):
         global_social.read("https://www.instagram.com/p/BsOGulcndj-/", None, ReadOptions(), renderer=Renderer())
+
+
+def test_yuque_returns_matching_document_and_image_card():
+    from urllib.parse import quote
+
+    metadata = {"doc": {"id": 123, "book_id": 456, "slug": "sample",
+                         "title": "文档", "abilities": {"read": True}}}
+    page = f'<script>window.appData = JSON.parse(decodeURIComponent({json.dumps(quote(json.dumps(metadata)))}))</script>'
+    card = quote(json.dumps({"src": "https://cdn.nlark.com/image.png"}))
+    html = f'<p>正文</p><card name="image" value="data:{card}"></card>'
+
+    def handle(request):
+        if request.url.path == "/team/book/sample":
+            return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+        assert request.url.path == "/api/docs/123" and request.url.params["book_id"] == "456"
+        return httpx.Response(200, json={"data": {"id": 123, "content": html}})
+
+    result = service_for(handle).read_page("https://bingda.yuque.com/team/book/sample",
+                                           output="json", include_media=True)
+    assert result["ok"] and result["body_text"] == "正文"
+    assert result["media"]["images"] == ["https://cdn.nlark.com/image.png"]
+
+
+def test_yuque_rejects_mismatched_document():
+    from urllib.parse import quote
+
+    metadata = {"doc": {"id": 123, "book_id": 456, "slug": "sample",
+                         "title": "文档", "abilities": {"read": True}}}
+    page = f'<script>window.appData = JSON.parse(decodeURIComponent({json.dumps(quote(json.dumps(metadata)))}))</script>'
+
+    def handle(request):
+        if request.url.path == "/team/book/sample":
+            return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+        return httpx.Response(200, json={"data": {"id": 999, "content": "<p>其他文档</p>"}})
+
+    result = service_for(handle).read_page("https://bingda.yuque.com/team/book/sample", output="json")
+    assert not result["ok"] and result["error_code"] == "CONTENT_NOT_FOUND"
