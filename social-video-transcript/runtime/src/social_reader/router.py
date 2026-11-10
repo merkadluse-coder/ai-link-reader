@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import ModuleType
 from urllib.parse import urlsplit
 
-from .extractors import bilibili, douyin, generic, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, xhs, youtube
+from .extractors import bilibili, douyin, generic, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, xhs, youtube
 from .security import host_matches
 
 # P1 platforms: recognised, but read with the generic reader until their parsers ship.
@@ -57,6 +57,8 @@ def route(url: str) -> Route:
         return Route("telegram", telegram)
     if snapchat.video_id(url):
         return Route("snapchat", snapchat)
+    if social := global_social.identify(url):
+        return Route(social[0], global_social)
     for platform, suffixes in PENDING_PLATFORMS.items():
         if host_matches(host, suffixes):
             return Route(platform, generic, pending=True)

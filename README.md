@@ -18,10 +18,12 @@
 - **西瓜视频** · `www.ixigua.com/<作品ID>` 网页直链，以及 `m.ixigua.com/video/…` 和 `m.ixigua.com/dx/…` 手机作品页。读取标题、作者、简介、封面和时长。
 - **YouTube** · `youtube.com/watch?v=…` 网页直链和 `youtu.be/…` 分享短链。读取标题、频道、简介、封面和时长。
 
+- **TikTok** · `tiktok.com/@作者/video/<作品ID>` 公开视频页。使用本机 Chrome 读取页面显示的描述，文字可能折叠或截断，媒体地址待接入。
+- **Instagram** · `instagram.com/p/<作品ID>/` 公开图文页。使用本机 Chrome 读取页面显示的文字，文字可能折叠或截断，媒体地址待接入。
 - **Telegram** · `t.me/<公开频道>/<帖子ID>` 分享直链和 `t.me/s/<公开频道>/<帖子ID>` 网页入口。已验证公开帖子的正文、配图和视频，按链接读取单条帖子。
 - **Snapchat** · `snapchat.com/spotlight/<作品ID>` 分享直链和含 `/@作者/spotlight/` 的网页直链。已验证公开 Spotlight 的简介、封面及 MP4 音视频轨。
 
-微博视频、短链 `t.cn`、西瓜视频 App 短链 `v.ixigua.com`、知乎和微信视频号还没有通过对应内容的实测。西瓜视频和 YouTube 目前覆盖作品信息，音视频地址与字幕另行验证。Facebook、Instagram、TikTok、WhatsApp 频道更新和 LinkedIn 等入口继续收集可复验的公开单条样本。
+微博视频、短链 `t.cn`、西瓜视频 App 短链 `v.ixigua.com`、知乎和微信视频号还没有通过对应内容的实测。西瓜视频和 YouTube 目前覆盖作品信息，音视频地址与字幕另行验证。Facebook、WhatsApp 频道更新和 LinkedIn 等入口继续收集可复验的公开单条样本。
 
 只读取可公开访问的内容。入口能否读取取决于作品状态和平台要求。视频描述是作者提供的文字，图片文字和视频口播可分别交由外部 OCR 和 ASR 服务处理。基础读取无需模型或云端识别账户。
 

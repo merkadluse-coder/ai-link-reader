@@ -171,3 +171,33 @@ def test_snapchat_uses_the_matching_video_object():
     assert result["ok"] and result["canonical_url"] == canonical
     assert result["media"]["duration_ms"] == 8000
     assert result["media"]["video_url"] == "https://bolt-gcdn.sc-cdn.net/target"
+
+
+def test_tiktok_visible_caption_skips_css_and_reports_limits():
+    from social_reader.extractors import global_social
+    from social_reader.extractors.common import ReadOptions
+
+    class Renderer:
+        def render(self, url, *, ready):
+            return '''<a href="/@example/video/6718335390845095173"></a>
+                <article data-e2e="video-desc"><style>.example {color: red}</style>公开描述</article>'''
+
+    result, _ = global_social.read("https://www.tiktok.com/@example/video/6718335390845095173",
+                                   None, ReadOptions(), renderer=Renderer())
+    assert result.body == "公开描述"
+    assert {warning.code for warning in result.warnings} == {"TEXT_MAY_BE_TRUNCATED", "MEDIA_UNAVAILABLE"}
+
+
+def test_instagram_rejects_a_different_canonical_post():
+    from social_reader.errors import ReaderError
+    from social_reader.extractors import global_social
+    from social_reader.extractors.common import ReadOptions
+    import pytest
+
+    class Renderer:
+        def render(self, url, *, ready):
+            return '''<link rel="canonical" href="https://www.instagram.com/p/another/">
+                <span>BsOGulcndj-</span><h1>其他帖子的文字</h1>'''
+
+    with pytest.raises(ReaderError):
+        global_social.read("https://www.instagram.com/p/BsOGulcndj-/", None, ReadOptions(), renderer=Renderer())
