@@ -66,3 +66,64 @@ def test_wechat_returns_only_the_article_and_its_images():
     assert result["ok"] and result["title"] == "文章标题" and result["body_text"] == "正文 & 说明"
     assert result["canonical_url"] == "https://mp.weixin.qq.com/s/sample"
     assert result["media"]["images"] == ["https://mmbiz.qpic.cn/article.jpg"]
+
+
+def test_weibo_share_resolves_to_the_public_post_and_excludes_recommendations():
+    def handle(request):
+        assert request.headers["host"] == "weibo.com"
+        assert request.url.path == "/2/detail/5184628856196406"
+        assert request.url.query == b""
+        return httpx.Response(200, text="""
+          <div class="layout__cardSingle">
+            <span class="layout__name">博主</span>
+            <div class="layout__htmlText">正文<br>第二行 &amp; 示例</div>
+            <img class="layout__picImg" src="https://wx1.sinaimg.cn/large/post.jpg">
+          </div>
+          <div class="layout__recommend">
+            <div class="layout__htmlText">推荐内容</div>
+            <img class="layout__picImg" src="https://wx1.sinaimg.cn/large/other.jpg">
+          </div>
+        """, headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page("转发 https://m.weibo.cn/status/PzvA9pZY2?tracking=synthetic",
+                                           output="json", include_media=True)
+    assert result["ok"] and result["platform"] == "weibo"
+    assert result["author"] == "博主" and result["body_text"] == "正文\n第二行 & 示例"
+    assert result["source_url"] == "https://weibo.com/2/detail/5184628856196406"
+    assert result["media"]["images"] == ["https://wx1.sinaimg.cn/large/post.jpg"]
+
+
+def test_xigua_rejects_state_for_a_different_work():
+    video = {"gid": "7364960700134851124", "title": "另一件作品"}
+    data = {"data": {"storeState": {"detail": {"videoData": {"result": video}}}}}
+
+    def handle(request):
+        assert request.headers["host"] == "m.ixigua.com"
+        assert request.url.path == "/video/7364960700134851123"
+        return httpx.Response(200, text=f"<script>window._SSR_DATA = {json.dumps(data)}</script>",
+                              headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page("https://www.ixigua.com/7364960700134851123", output="json")
+    assert not result["ok"] and result["error_code"] == "CONTENT_NOT_FOUND"
+
+
+def test_youtube_player_embed_is_not_exposed_as_media():
+    data = {
+        "playabilityStatus": {"status": "OK"},
+        "videoDetails": {"videoId": "AAAAAAAAAAA", "title": "视频", "shortDescription": "作者简介"},
+        "streamingData": {"serverAbrStreamingUrl": "https://example.com/opaque"},
+    }
+
+    def handle(request):
+        assert request.headers["host"] == "www.youtube.com"
+        assert request.url.query == b"v=AAAAAAAAAAA"
+        return httpx.Response(200, text=f"""
+          <meta property="og:video:url" content="https://www.youtube.com/embed/AAAAAAAAAAA">
+          <script>var ytInitialPlayerResponse = {json.dumps(data)}</script>
+        """, headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page("https://youtu.be/AAAAAAAAAAA?tracking=synthetic",
+                                           output="json", include_media=True)
+    assert result["ok"] and result["type"] == "video" and result["body_text"] == "作者简介"
+    assert result["media"]["video_url"] is None and not result["media"]["has_video"]
+    assert "VIDEO_MEDIA_UNAVAILABLE" in {warning["code"] for warning in result["warnings"]}
