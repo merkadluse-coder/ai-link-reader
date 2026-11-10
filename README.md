@@ -1,4 +1,4 @@
-# Social Content Reader
+# AI Link Reader
 
 [English](#english) | [中文](#中文)
 
@@ -54,7 +54,7 @@
 
 欢迎提交想读的平台及真实样例。请注明链接来自 PC 网页、iOS App 还是 Android App，以及希望读取的内容类型。提交可公开访问、未附带账号信息、设备参数或临时签名的链接。
 
-[提交平台支持需求或分享链接](https://github.com/merkadluse-coder/social-content-reader/issues/new?template=platform-request.md)
+[提交平台支持需求或分享链接](https://github.com/merkadluse-coder/ai-link-reader/issues/new?template=platform-request.md)
 
 ## 许可证
 
@@ -63,7 +63,8 @@
 
 ## English
 
-Social Content Reader is an Agent Skill for reading public social-media posts, videos, articles, and document links. It extracts available text and media references from web URLs and app share text. 
+AI Link Reader is an Agent Skill for reading public social-media posts, videos, articles, and document links. It extracts available text and media references from web URLs and app share text.
+
 ### Install and use
 
 Copy the `social-video-transcript/` folder into your client's Skills directory and follow the [setup guide](social-video-transcript/references/setup.md). Paste a public link or app share text into your assistant. The existing folder and skill name are retained for compatibility.
@@ -99,4 +100,4 @@ The reader saves extracted text to `body.txt` and numbers available media files.
 
 ### Request a platform
 
-Use the [platform request template](https://github.com/merkadluse-coder/social-content-reader/issues/new?template=platform-request.md) to share a publicly accessible example. Tell us whether it came from a desktop page, iOS, Android, or a desktop client, and which content you want to read.
+Use the [platform request template](https://github.com/merkadluse-coder/ai-link-reader/issues/new?template=platform-request.md) to share a publicly accessible example. Tell us whether it came from a desktop page, iOS, Android, or a desktop client, and which content you want to read.
