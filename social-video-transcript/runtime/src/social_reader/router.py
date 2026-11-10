@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import ModuleType
 from urllib.parse import urlsplit
 
-from .extractors import bilibili, douyin, generic, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, xhs, youtube, yuque
+from .extractors import bilibili, documents, douyin, generic, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, xhs, youtube, yuque
 from .security import host_matches
 
 # P1 platforms: recognised, but read with the generic reader until their parsers ship.
@@ -23,6 +23,7 @@ PLATFORM_LABELS = {
     "bilibili": "哔哩哔哩", "wechat": "微信公众号", "generic": "网页",
     "weibo": "微博", "xigua": "西瓜视频", "youtube": "YouTube",
     "telegram": "Telegram", "snapchat": "Snapchat", "yuque": "语雀",
+    "google_docs": "Google 文档", "google_scholar": "Google 学术", "baidu_wenku": "百度文库",
 }
 
 
@@ -61,6 +62,8 @@ def route(url: str) -> Route:
         return Route(social[0], global_social)
     if yuque.is_document(url):
         return Route("yuque", yuque)
+    if document := documents.identify(url):
+        return Route(document, documents)
     for platform, suffixes in PENDING_PLATFORMS.items():
         if host_matches(host, suffixes):
             return Route(platform, generic, pending=True)

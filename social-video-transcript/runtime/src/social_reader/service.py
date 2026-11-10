@@ -11,7 +11,7 @@ from typing import Any
 from .audit import audit_event, get_logger
 from .browser import ChromeRenderer, Renderer, playwright_installed
 from .config import Settings
-from .extractors import bilibili, douyin, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, youtube, yuque
+from .extractors import bilibili, documents, douyin, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, youtube, yuque
 from .errors import ErrorCode, ReaderError
 from .extractors.common import CN_TZ, ReadOptions
 from .fetcher import Fetcher
@@ -120,7 +120,7 @@ class ReaderService:
                 extraction.warn("RESPONSE_TRUNCATED", "页面超过大小上限，只读取了前一部分")
             if extracted:
                 extraction.warn("URL_EXTRACTED", "输入是一段分享文字，已从中提取第一个链接读取")
-            canonical_extractors = (toutiao, douyin, bilibili, wechat, kuaishou, weibo, xigua, youtube, yuque, telegram, snapchat, global_social, yuque)
+            canonical_extractors = (toutiao, douyin, bilibili, wechat, kuaishou, weibo, xigua, youtube, yuque, telegram, snapchat, global_social, yuque, documents)
             cited = extraction.canonical_url if chosen.extractor in canonical_extractors else None
             result = self._success(extraction, cited or url, result_id, fetched_at, options, output)
         except ReaderError as error:

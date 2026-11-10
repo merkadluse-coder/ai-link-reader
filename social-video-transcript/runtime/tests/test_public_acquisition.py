@@ -238,3 +238,47 @@ def test_yuque_rejects_mismatched_document():
 
     result = service_for(handle).read_page("https://bingda.yuque.com/team/book/sample", output="json")
     assert not result["ok"] and result["error_code"] == "CONTENT_NOT_FOUND"
+
+
+def test_google_docs_reads_export_instead_of_editor_shell():
+    from urllib.parse import urlsplit
+
+    def handle(request):
+        host = request.headers["host"]
+        if host == "docs.google.com" and request.url.path.endswith("/edit"):
+            return httpx.Response(200, text="<title>示例 - Google 文档</title>界面菜单",
+                                  headers={"content-type": "text/html"})
+        if host == "docs.google.com" and request.url.path.endswith("/export"):
+            assert request.url.params["resourcekey"] == "sample-key"
+            return httpx.Response(302, headers={"location": "https://doc.googleusercontent.com/export/file"})
+        assert host == "doc.googleusercontent.com"
+        return httpx.Response(200, content="完整正文".encode(), headers={"content-type": "text/plain; charset=utf-8"})
+
+    result = service_for(handle).read_page(
+        "https://docs.google.com/document/d/abcdefghij123456/edit?resourcekey=sample-key",
+        output="json",
+    )
+    assert result["ok"] and result["body_text"] == "完整正文"
+    assert urlsplit(result["source_url"]).hostname == "docs.google.com"
+
+
+def test_baidu_wenku_preview_is_explicitly_marked():
+    def handle(request):
+        return httpx.Response(200, text='<title>测试 - 百度文库</title><div id="ssr-reader-container">'
+                                        '<div class="reader-page">一页试读内容</div></div>',
+                              headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page("https://wenku.baidu.com/view/abc123.html", output="json")
+    assert result["ok"] and result["body_text"] == "一页试读内容"
+    assert "PREVIEW_ONLY" in {warning["code"] for warning in result["warnings"]}
+
+
+def test_scholar_profile_returns_list_without_navigation():
+    def handle(request):
+        return httpx.Response(200, text='<title>学者 - Google 学术</title><div>无关内容</div>'
+                                        '<div id="gsc_a_tw"><table><tr><td>论文标题</td></tr></table></div>',
+                              headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page("https://scholar.google.com/citations?user=abc123", output="json")
+    assert result["ok"] and result["body_text"] == "论文标题"
+    assert "PROFILE_LIST_ONLY" in {warning["code"] for warning in result["warnings"]}
