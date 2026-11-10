@@ -282,3 +282,36 @@ def test_scholar_profile_returns_list_without_navigation():
     result = service_for(handle).read_page("https://scholar.google.com/citations?user=abc123", output="json")
     assert result["ok"] and result["body_text"] == "论文标题"
     assert "PROFILE_LIST_ONLY" in {warning["code"] for warning in result["warnings"]}
+
+
+def test_download_media_checks_redirects_and_never_overwrites(tmp_path):
+    from social_reader.errors import ReaderError
+    import pytest
+
+    def handle(request):
+        if request.url.path == "/redirect":
+            return httpx.Response(302, headers={"location": "http://127.0.0.1/private"})
+        return httpx.Response(200, content=b"test image", headers={"content-type": "image/jpeg"})
+
+    service = service_for(handle)
+    path, size = service.fetcher.download_media("https://images.example/photo", tmp_path, "image-001",
+                                                referer="https://example.com/")
+    assert path.read_bytes() == b"test image" and size == 10
+    with pytest.raises(FileExistsError):
+        service.fetcher.download_media("https://images.example/photo", tmp_path, "image-001",
+                                       referer="https://example.com/")
+    with pytest.raises(ReaderError):
+        service.fetcher.download_media("https://images.example/redirect", tmp_path, "image-002",
+                                       referer="https://example.com/")
+    assert not list(tmp_path.glob("image-002*"))
+
+
+def test_document_extractor_separates_editor_and_outline():
+    from social_reader.extractors.chinese_docs import _text
+
+    shimo = '<div>目录</div><div class="hk-editor-content"><p>正文</p><p>第二段</p></div>'
+    wps = '<svg><g id="main-content"><text>第一行</text><text>第二行</text></g><g>工具栏</g></svg>'
+    qq = '<div class="headline-content"><div class="headline">第一章</div></div><div>评论</div>'
+    assert _text(shimo, "shimo") == "正文\n第二段"
+    assert _text(wps, "wps") == "第一行\n第二行"
+    assert _text(qq, "tencent_docs") == "第一章"

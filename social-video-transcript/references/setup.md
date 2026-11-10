@@ -16,7 +16,7 @@ python3 -m venv .venv
 
 默认返回正文和媒体可用状态。处理器需要媒体地址时，加入 `--include-media`，从 `media.images`、`media.video_url` 或可用时的 `media.audio_url` 取得。视频站点返回的媒体地址可能随时间失效。
 
-部分公开抖音页以及 TikTok、Instagram 页面需要浏览器渲染。安装本机 Google Chrome 后，在同一环境安装可选依赖。
+部分公开抖音页、TikTok、Instagram、石墨文档、金山文档和腾讯文档页面需要浏览器渲染。安装本机 Google Chrome 后，在同一环境安装可选依赖。
 
 ```bash
 .venv/bin/python -m pip install '.[browser]'

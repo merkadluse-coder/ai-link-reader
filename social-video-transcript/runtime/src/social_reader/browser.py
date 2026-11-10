@@ -54,12 +54,14 @@ class ChromeRenderer:
         max_loads: int = 3,
         device: str = "Pixel 7",
         channel: str = "chrome",
+        settle_seconds: float = 1.5,
     ) -> None:
         self.allowed = allowed_host_suffixes
         self.timeout = timeout_seconds
         self.max_loads = max_loads
         self.device = device
         self.channel = channel
+        self.settle_seconds = settle_seconds
 
     def _route(self, route) -> None:  # playwright.sync_api.Route
         request = route.request
@@ -101,7 +103,7 @@ class ChromeRenderer:
                     if remaining_ms <= 1000:
                         break
                     page.goto(target.url, wait_until="domcontentloaded", timeout=remaining_ms)
-                    page.wait_for_timeout(1500)  # let the platform's own scripts settle
+                    page.wait_for_timeout(min(self.settle_seconds * 1000, max(0, (deadline - time.monotonic()) * 1000)))
                     html = page.content()
                     if ready(html):
                         log.info("browser render ok loads=%s ms=%s", load, int((time.monotonic() - started) * 1000))

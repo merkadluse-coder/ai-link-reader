@@ -175,6 +175,52 @@ class Fetcher:
             except httpx.HTTPError:
                 raise ReaderError(ErrorCode.FETCH_BLOCKED, "媒体下载失败") from None
 
+    def download_media(self, url: str, directory: Path, stem: str, *, referer: str) -> tuple[Path, int]:
+        """Save an extracted public media URL with checked redirects and exclusive creation."""
+        extensions = {
+            "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+            "image/gif": ".gif", "image/avif": ".avif", "video/mp4": ".mp4",
+            "audio/mp4": ".m4a", "audio/mpeg": ".mp3", "video/quicktime": ".mov",
+        }
+        limit = 250 * 1024 * 1024
+        deadline = monotonic() + 120
+        with self._stream(url, referer=referer, scope=()) as (_, response, _):
+            if error := _status_error(response.status_code):
+                raise error
+            if response.status_code != 200:
+                raise ReaderError(ErrorCode.FETCH_BLOCKED, "媒体没有返回完整文件")
+            mime = response.headers.get("content-type", "").partition(";")[0].strip().lower()
+            extension = extensions.get(mime)
+            if not extension:
+                raise ReaderError(ErrorCode.UNSUPPORTED_PLATFORM, "媒体格式不受支持")
+            length = response.headers.get("content-length", "")
+            if length.isdecimal() and int(length) > limit:
+                raise ReaderError(ErrorCode.UNSUPPORTED_PLATFORM, "媒体超过 250 MiB 下载上限")
+            path = directory / (stem + extension)
+            size = 0
+            created = False
+            try:
+                with path.open("xb") as stream:
+                    created = True
+                    for chunk in response.iter_bytes(chunk_size=64 * 1024):
+                        size += len(chunk)
+                        if size > limit:
+                            raise ReaderError(ErrorCode.UNSUPPORTED_PLATFORM, "媒体超过 250 MiB 下载上限")
+                        if monotonic() > deadline:
+                            raise ReaderError(ErrorCode.FETCH_TIMEOUT, "媒体下载超时")
+                        stream.write(chunk)
+                    if not size:
+                        raise ReaderError(ErrorCode.CONTENT_NOT_FOUND, "媒体内容为空")
+            except Exception as error:
+                if created:
+                    path.unlink(missing_ok=True)
+                if isinstance(error, httpx.TimeoutException):
+                    raise ReaderError(ErrorCode.FETCH_TIMEOUT, "媒体下载超时") from None
+                if isinstance(error, httpx.HTTPError):
+                    raise ReaderError(ErrorCode.FETCH_BLOCKED, "媒体下载失败", retryable=True) from None
+                raise
+            return path, size
+
     @contextmanager
     def _stream(
         self, url: str, *, user_agent: str = MOBILE_UA, referer: str | None, scope: tuple[str, ...],
