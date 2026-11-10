@@ -63,8 +63,7 @@
 
 ## English
 
-Social Content Reader is an Agent Skill for reading public social-media posts, videos, articles, and document links. It extracts available text and media references from web URLs and app share text. The core reader runs locally without an OCR or ASR model.
-
+Social Content Reader is an Agent Skill for reading public social-media posts, videos, articles, and document links. It extracts available text and media references from web URLs and app share text. 
 ### Install and use
 
 Copy the `social-video-transcript/` folder into your client's Skills directory and follow the [setup guide](social-video-transcript/references/setup.md). Paste a public link or app share text into your assistant. The existing folder and skill name are retained for compatibility.
