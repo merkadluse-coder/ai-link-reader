@@ -61,9 +61,6 @@ python3 -m venv .venv
 - **Google 文档** · 公开的文档编辑、查看及网页发布链接，读取正文文本。
 - **Google 学术** · 公开学者主页，读取当前页论文列表。检索页可能要求会话验证，论文全文需访问原文。
 - **百度文库** · `wenku.baidu.com/view/…` 和 `/tfview/…`，读取页面公开显示的试读文字并标记可能不完整。
-- **石墨文档** · 通过 Chrome 读取已验证的公开文档页面文字。
-- **金山文档** · 通过 Chrome 读取已验证页面加载的文字，分页内容可能不完整。
-- **腾讯文档** · 通过 Chrome 读取已验证文档的可见大纲，正文待接入。
 - **语雀** · 公开文档链接，已验证正文和图片引用。表格单元格以文本顺序返回。
 - **TikTok** · `tiktok.com/@作者/video/<作品ID>` 公开视频页。使用本机 Chrome 读取页面显示的描述，文字可能折叠或截断，媒体地址待接入。
 - **Instagram** · `instagram.com/p/<作品ID>/` 公开图文页。使用本机 Chrome 读取页面显示的文字，文字可能折叠或截断，媒体地址待接入。
@@ -74,6 +71,14 @@ python3 -m venv .venv
 
 只读取可公开访问的内容。入口能否读取取决于作品状态和平台要求。视频描述是作者提供的文字，图片文字和视频口播可分别交由外部 OCR 和 ASR 服务处理。基础读取无需模型或云端识别账户。
 
+### 实验性文档预览
+
+以下入口需要运行读取器的机器安装 Chrome 和 Playwright。CLI 和通用 MCP 的 `read_page` 可以试读，国内媒体 MCP 的 `read_public_media` 面向社媒与新闻。
+
+- **石墨文档** · 公开 `shimo.im/docs/…` 样本曾读到编辑区文字，部分样本可能读不到。返回成功时标记 `content_scope: visible_text`。
+- **金山文档** · 公开 `kdocs.cn/l/…` 分享页有机会返回浏览器当前加载的文字，标记 `content_scope: visible_text`。同一链接复测可能失败，分页和未加载内容也可能缺失。
+- **腾讯文档** · 公开 `docs.qq.com/doc/…` 样本只验证了可见大纲。结果标记 `content_scope: outline`，大纲放在 `outline_text`，正文为空。
+
 ## 保存文字和媒体
 
 在 Skill 的 `runtime/` 目录执行以下命令。首次安装见上方安装说明。
@@ -82,7 +87,7 @@ python3 -m venv .venv
 .venv/bin/social-reader read --save-dir ./saved-example --download-media -- 'https://t.me/telegram/393'
 ```
 
-正文保存在 `body.txt`，媒体按类型编号保存。提取过程会剔除可识别的页面导航等杂项，正文中的推广内容可能保留。图片和视频使用平台返回的可用地址，能否取得原图或完整媒体取决于平台；当前不保证原图。单个媒体上限为 250 MiB，已有同名文件不会被覆盖。只保存文字时省略 `--download-media`。
+正文保存在 `body.txt`，实验性文档预览根据类型保存为 `visible-text.txt` 或 `outline.txt`。媒体按类型编号保存。提取过程会剔除可识别的页面导航等杂项，正文中的推广内容可能保留。图片和视频使用平台返回的可用地址，能否取得原图或完整媒体取决于平台；当前不保证原图。单个媒体上限为 250 MiB，已有同名文件不会被覆盖。只保存文字时省略 `--download-media`。
 
 ## 提交平台需求
 
@@ -120,15 +125,20 @@ Copy the `social-video-transcript/` folder into your client's Skills directory a
 - **Xigua and YouTube** — video title, description, cover and duration from tested public links. Media streams and subtitles remain under investigation.
 - **TikTok and Instagram** — visible post text from tested public pages via local Chrome. Text may be collapsed or truncated, and media extraction remains under investigation.
 - **Telegram and Snapchat** — public Telegram channel posts and Snapchat Spotlight pages. Text and video references have been verified on samples.
-- **Shimo** — visible text from a tested public document in Chrome.
-- **WPS / KDocs** — text loaded from a tested public document in Chrome; paginated content may be incomplete.
-- **Tencent Docs** — the visible outline from a tested public document in Chrome; body extraction remains under investigation.
 - **Yuque** — public document text and image references. Table cells are returned in reading order.
 - **Google Docs** — text from tested public edit, view and published document URLs.
 - **Google Scholar** — the current publication list on public author profile pages. Search may require session verification, and full papers must be read at their sources.
 - **Baidu Wenku** — visible text from tested document pages, marked as a potentially incomplete preview.
 
 Access depends on each document or post and its sharing settings. OCR and ASR can be supplied by separate processors. The repository's [MIT license](LICENSE) covers the open-source reader.
+
+### Experimental document previews
+
+These previews require Chrome and Playwright on the machine running the reader. Use the CLI or the general MCP `read_page` tool. The domestic media MCP tool covers social and news links.
+
+- **Shimo** — public `shimo.im/docs/…` links may return loaded editor text as `content_scope: visible_text`. Some samples return no text.
+- **WPS / KDocs** — public `kdocs.cn/l/…` share pages may return loaded text as `content_scope: visible_text`. The same link can fail on repeat attempts, and unloaded pages can be missing.
+- **Tencent Docs** — tested public `docs.qq.com/doc/…` links returned the visible outline. Results have `content_scope: outline` and `outline_text`, with an empty body.
 
 ### Save text and media
 
@@ -138,7 +148,7 @@ From the Skill's `runtime/` directory, run:
 .venv/bin/social-reader read --save-dir ./saved-example --download-media -- 'https://t.me/telegram/393'
 ```
 
-The reader saves extracted text to `body.txt` and numbers available media files. Extraction removes recognizable navigation and page clutter. Promotional content within the source may remain. Files use the available source URLs, so original-image quality depends on the platform. Each media file is limited to 250 MiB and existing filenames are preserved. Omit `--download-media` to save text only.
+The reader saves body text to `body.txt` and experimental document previews to `visible-text.txt` or `outline.txt`. It numbers available media files. Extraction removes recognizable navigation and page clutter. Promotional content within the source may remain. Files use the available source URLs, so original-image quality depends on the platform. Each media file is limited to 250 MiB and existing filenames are preserved. Omit `--download-media` to save text only.
 
 ### Request a platform
 

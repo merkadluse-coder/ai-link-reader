@@ -1,4 +1,4 @@
-"""Read text shown in public Shimo and WPS document pages."""
+"""Extract loaded text or outlines from public document previews."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from ..security import host_matches
 from .common import ReadOptions, clean_text, detect_wall
 from .htmltext import parse_html
 
-VERSION = "chinese-docs-browser-0.1.0"
+VERSION = "chinese-docs-browser-0.2.0"
 HOSTS = {"shimo": ("shimo.im",), "wps": ("kdocs.cn", "wps.cn"), "tencent_docs": ("docs.qq.com",)}
 
 
@@ -86,11 +86,13 @@ def read(url: str, fetcher: Fetcher, options: ReadOptions, *, renderer: Renderer
     if not body:
         if wall := detect_wall(doc.text(), has_password=doc.has_password_input):
             raise wall
-        raise ReaderError(ErrorCode.CONTENT_NOT_FOUND, "页面没有公开返回可读取的文档正文")
+        raise ReaderError(ErrorCode.CONTENT_NOT_FOUND, "页面没有公开显示可提取的文档文字或大纲")
     result = Extraction(platform=platform, type="article", title=doc.title or body[:50], body=body,
                         extractor_version=VERSION, canonical_url=canonical, confidence=0.7)
     if platform == "tencent_docs":
+        result.content_scope = "outline"
         result.warn("OUTLINE_ONLY", "仅提取文档当前可见的大纲标题，未获取正文")
     else:
+        result.content_scope = "visible_text"
         result.warn("TEXT_MAY_BE_INCOMPLETE", "返回浏览器加载的文档文字，分页、图片和未加载内容可能不完整")
     return result, FetchResult(url=canonical, status=200, content_type="text/html", text=html)

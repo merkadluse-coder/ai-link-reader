@@ -52,6 +52,8 @@ async def read_page(
       CONTENT_NOT_FOUND / PARSE_CHANGED / RATE_LIMITED 等，不会伪装成功。
     - 使用结果时：关键事实要引用 source_url；summary 只是正文节选，不是模型结论；
       warnings 里的截断、低置信、视频未转写等提示必须转告用户。
+    - 实验性文档预览带 content_scope。visible_text 表示已加载文字，可能不完整；
+      outline 表示只取得 outline_text，不能据此总结未获取的正文。
     - 媒体 URL 默认不返回（include_media=true 才返回）；评论不含评论者身份。
     - 安装可选 ASR 组件后，头条、抖音、B站的公开视频可用 include_transcript=true 转写，返回 transcript.status 和带毫秒时间点的
       transcript.segments。status 非 ok 时没有逐字稿；作者简介不能当成口播。

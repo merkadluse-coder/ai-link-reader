@@ -45,10 +45,17 @@ def _batch(args: argparse.Namespace, settings: Settings) -> int:
 
 def _save(result: dict, directory: Path, service: ReaderService, download_media: bool) -> list[dict]:
     directory.mkdir(parents=True, exist_ok=True)
-    with (directory / "body.txt").open("x", encoding="utf-8") as stream:
-        stream.write(result["body_text"])
+    scope = result.get("content_scope")
+    if scope == "outline":
+        name, kind, text = "outline.txt", "outline", result["outline_text"]
+    elif scope == "visible_text":
+        name, kind, text = "visible-text.txt", "visible_text", result["body_text"]
+    else:
+        name, kind, text = "body.txt", "text", result["body_text"]
+    with (directory / name).open("x", encoding="utf-8") as stream:
+        stream.write(text)
         stream.write("\n")
-    saved = [{"kind": "text", "file": "body.txt"}]
+    saved = [{"kind": kind, "file": name}]
     if not download_media:
         return saved
     media = result["media"]

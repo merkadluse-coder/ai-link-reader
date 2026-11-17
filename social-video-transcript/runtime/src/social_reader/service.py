@@ -168,7 +168,13 @@ class ReaderService:
         limit = self.settings.max_body_chars
         if len(body) > limit:
             body = body[:limit].rstrip() + "…"
-            ex.warn("BODY_TRUNCATED", f"正文超过 {limit} 字，已截断，结论可能不完整")
+            if ex.content_scope == "outline":
+                ex.warn("OUTLINE_TRUNCATED", f"大纲超过 {limit} 字，已截断")
+            else:
+                ex.warn("BODY_TRUNCATED", f"文字超过 {limit} 字，已截断，结论可能不完整")
+        outline = body if ex.content_scope == "outline" else None
+        if outline is not None:
+            body = ""
         transcript: dict[str, Any] | None = None
         adapter = _TRANSCRIPT_EXTRACTORS.get(ex.extractor_version)
         if ex.type == "video" and options.include_transcript and adapter is not None:
@@ -202,7 +208,7 @@ class ReaderService:
             "type": ex.type,
             "title": ex.title,
             "summary": _excerpt(body),
-            "summary_kind": "excerpt",
+            "summary_kind": "none" if outline is not None else "excerpt",
             "author": ex.author,
             "published_at": ex.published_at.isoformat() if ex.published_at else None,
             "stats": ex.stats.to_dict(),
@@ -217,6 +223,10 @@ class ReaderService:
             "warnings": [w.to_dict() for w in ex.warnings],
             "body_text": body,
         }
+        if ex.content_scope:
+            result["content_scope"] = ex.content_scope
+        if outline is not None:
+            result["outline_text"] = outline
         if options.include_comments:
             result["comments"] = [{"content": c.content, "likes": c.likes} for c in ex.comments]
         if transcript is not None:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
 from typing import Any
 
 from .errors import RightsState
@@ -74,6 +75,7 @@ class Extraction:
     rights_state: RightsState = RightsState.PUBLIC
     confidence: float = 0.5
     warnings: list[Notice] = field(default_factory=list)
+    content_scope: Literal["visible_text", "outline"] | None = None
 
     def warn(self, code: str, message: str) -> None:
         if all(w.code != code for w in self.warnings):
