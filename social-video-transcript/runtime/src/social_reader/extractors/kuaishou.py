@@ -18,7 +18,7 @@ VERSION = "kuaishou-mobile-0.1.0"
 REFERER = "https://m.kuaishou.com/"
 _VIDEO_PATH = re.compile(r"/(?:short-video|fw/photo)/([a-zA-Z0-9]{6,32})/?")
 _SHORT_HOSTS = {"v.kuaishou.com", "s.kuaishou.com"}
-_SHARE_REDIRECT_HOST = "kph1tf76.m.chenzhongtech.com"
+SHARE_REDIRECT_HOST = "kph1tf76.m.chenzhongtech.com"
 
 
 def video_id(url: str) -> str | None:
@@ -53,11 +53,11 @@ def read(url: str, fetcher: Fetcher, options: ReadOptions, *, renderer: object =
     if work is None:
         # This share redirect carries the public work ID. Read the work on the main site.
         landing = fetcher.resolve_redirect(
-            url, scope=(*HOST_SUFFIXES, _SHARE_REDIRECT_HOST),
-            stop_at=lambda link: video_id(link) is not None or urlsplit(link).hostname == _SHARE_REDIRECT_HOST,
+            url, scope=(*HOST_SUFFIXES, SHARE_REDIRECT_HOST),
+            stop_at=lambda link: video_id(link) is not None or urlsplit(link).hostname == SHARE_REDIRECT_HOST,
         )
         work = video_id(landing)
-        if work is None and urlsplit(landing).hostname == _SHARE_REDIRECT_HOST:
+        if work is None and urlsplit(landing).hostname == SHARE_REDIRECT_HOST:
             match = _VIDEO_PATH.fullmatch(urlsplit(landing).path)
             work = match[1] if match else None
     if work is None:

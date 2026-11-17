@@ -11,13 +11,13 @@ from typing import Any
 from .audit import audit_event, get_logger
 from .browser import ChromeRenderer, Renderer, playwright_installed
 from .config import Settings
-from .extractors import bilibili, chinese_docs, documents, douyin, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, youtube, yuque
+from .extractors import bilibili, chinese_docs, chinese_media, documents, douyin, global_social, jike, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, youtube, yuque
 from .errors import ErrorCode, ReaderError
 from .extractors.common import CN_TZ, ReadOptions
 from .fetcher import Fetcher
 from .models import Extraction, media_to_dict
 from .render import render_markdown
-from .router import PLATFORM_LABELS, route
+from .router import DOMESTIC_MEDIA_PLATFORMS, PLATFORM_LABELS, route
 from .security import RateLimiter, redact_url, validate_url
 
 log = get_logger("social_reader.service")
@@ -63,11 +63,13 @@ class ReaderService:
         fetcher: Fetcher | None = None,
         limiter: RateLimiter | None = None,
         renderer: Renderer | None = None,
+        domestic_media_only: bool = False,
     ) -> None:
         self.settings = settings or Settings.from_env()
         self.fetcher = fetcher or Fetcher(self.settings)
         self.limiter = limiter or RateLimiter(self.settings.burst_per_minute, self.settings.daily_quota)
         self.renderer = renderer if renderer is not None else self._default_renderer()
+        self.domestic_media_only = domestic_media_only
 
     def _default_renderer(self) -> Renderer | None:
         mode = self.settings.browser_fallback
@@ -97,6 +99,8 @@ class ReaderService:
             target = validate_url(url, self.settings.allowed_host_suffixes)
             chosen = route(target.url)
             platform = chosen.platform
+            if self.domestic_media_only and (platform not in DOMESTIC_MEDIA_PLATFORMS or chosen.pending):
+                raise ReaderError(ErrorCode.UNSUPPORTED_PLATFORM, "请提供支持的国内平台公开作品或文章链接")
             options = ReadOptions(include_media, include_comments, include_transcript, language)
             group = toutiao.video_id(target.url) if chosen.extractor is toutiao else None
             # The verified mobile route only needs the work ID, never device/share tokens.
@@ -126,7 +130,8 @@ class ReaderService:
                 extraction.warn("RESPONSE_TRUNCATED", "页面超过大小上限，只读取了前一部分")
             if extracted:
                 extraction.warn("URL_EXTRACTED", "输入是一段分享文字，已从中提取第一个链接读取")
-            canonical_extractors = (toutiao, douyin, bilibili, wechat, kuaishou, weibo, xigua, youtube, yuque, telegram, snapchat, global_social, yuque, documents, chinese_docs)
+            canonical_extractors = (toutiao, douyin, bilibili, wechat, kuaishou, weibo, jike, xigua, youtube,
+                                    yuque, telegram, snapchat, global_social, documents, chinese_docs, chinese_media)
             cited = extraction.canonical_url if chosen.extractor in canonical_extractors else None
             result = self._success(extraction, cited or url, result_id, fetched_at, options, output)
         except ReaderError as error:

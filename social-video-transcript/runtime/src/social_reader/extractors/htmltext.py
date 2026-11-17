@@ -8,6 +8,7 @@ containers and drop navigation, footers, forms and scripts.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
@@ -40,6 +41,7 @@ class HtmlDoc:
     jsonld: list[str] = field(default_factory=list)
     paragraphs: list[Paragraph] = field(default_factory=list)
     has_password_input: bool = False
+    article_images: list[str] = field(default_factory=list)
 
     def meta(self, *names: str) -> str:
         for name in names:
@@ -54,11 +56,15 @@ class HtmlDoc:
 
 
 class _Collector(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, article_container: Callable[[dict[str, str]], bool] | None = None) -> None:
         super().__init__(convert_charrefs=True)
         self.doc = HtmlDoc()
         self.stack: list[str] = []
         self.counts = {"skip": 0, "exclude": 0, "article": 0, "main": 0}
+        self.article_container = article_container
+        self.article_depth: int | None = None
+        self.article_found = False
+        self.hidden_depths: set[int] = set()
         self.in_title = False
         self.in_jsonld = False
         self.title_parts: list[str] = []
@@ -69,9 +75,9 @@ class _Collector(HTMLParser):
 
     # ── state ──
     def _region(self) -> str:
-        if self.counts["exclude"]:
+        if self.counts["exclude"] or self.hidden_depths:
             return "excluded"
-        if self.counts["article"]:
+        if self.article_depth is not None or (self.article_container is None and self.counts["article"]):
             return "article"
         if self.counts["main"]:
             return "main"
@@ -116,10 +122,23 @@ class _Collector(HTMLParser):
         if tag in _BLOCK:
             self._flush()
             self.buf_tag = tag
+        if tag == "img" and self.article_depth is not None and self._region() == "article" and not self.counts["skip"]:
+            if image := a.get("data-src") or a.get("data-original") or a.get("src"):
+                self.doc.article_images.append(image)
         if tag in _VOID:
             return
         self.stack.append(tag)
         self._adjust(tag, +1)
+        if self.article_container is not None:
+            style = re.sub(r"\s+", "", a.get("style", "").lower())
+            if ("hidden" in a or a.get("aria-hidden") == "true"
+                    or "display:none" in style or "visibility:hidden" in style
+                    or a.get("id") == "ad_content"):
+                self.hidden_depths.add(len(self.stack))
+            if not self.article_found and not self.hidden_depths and not self.counts["skip"] and self.article_container(a):
+                self._flush()
+                self.article_depth = len(self.stack)
+                self.article_found = True
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
@@ -133,6 +152,10 @@ class _Collector(HTMLParser):
         if tag not in self.stack:
             return
         while self.stack:
+            if self.article_depth == len(self.stack):
+                self._flush()
+                self.article_depth = None
+            self.hidden_depths.discard(len(self.stack))
             top = self.stack.pop()
             self._adjust(top, -1)
             if top == tag:
@@ -157,8 +180,8 @@ class _Collector(HTMLParser):
         self.doc.title = _SPACES.sub(" ", "".join(self.title_parts)).strip()
 
 
-def parse_html(html: str) -> HtmlDoc:
-    collector = _Collector()
+def parse_html(html: str, *, article_container: Callable[[dict[str, str]], bool] | None = None) -> HtmlDoc:
+    collector = _Collector(article_container)
     collector.feed(html)
     collector.close()
     return collector.doc

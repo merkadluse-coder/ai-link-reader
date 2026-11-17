@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Iterator
 from urllib.parse import urljoin, urlsplit
@@ -113,20 +114,22 @@ def _strip_site(title: str, site: str) -> str:
     return title
 
 
-def parse(html: str, *, source_url: str, options: ReadOptions) -> Extraction:
-    doc = parse_html(html)
+def parse(
+    html: str, *, source_url: str, options: ReadOptions,
+    article_container: Callable[[dict[str, str]], bool] | None = None,
+) -> Extraction:
+    doc = parse_html(html, article_container=article_container)
     article = _jsonld_article(doc)
     visible = "\n".join(filter(None, [doc.title, doc.text()]))
     wall = detect_wall(visible, has_password=doc.has_password_input)
     if wall:
         raise wall
+    if article_container is not None and str(article.get("isAccessibleForFree")).lower() == "false":
+        raise ReaderError(ErrorCode.PREVIEW_ONLY, "此页面为付费文章，请查看原站访问条件")
 
     site = doc.meta("og:site_name")
-    title = clean_text(
-        next((t for t in _names(article.get("headline")) if t), "")
-        or doc.meta("og:title", "twitter:title")
-        or _strip_site(doc.title, site)
-    )
+    headline = next((t for t in _names(article.get("headline")) if t), "")
+    title = clean_text(headline or doc.meta("og:title", "twitter:title") or _strip_site(doc.title, site))
 
     regions = {
         "article": [p for p in doc.paragraphs if p.region == "article"],
@@ -134,23 +137,23 @@ def parse(html: str, *, source_url: str, options: ReadOptions) -> Extraction:
         "body": [p for p in doc.paragraphs if p.region == "body" and len(p.text) >= 20],
     }
     source, paragraphs = "metadata", []
-    for name in ("article", "main"):
+    containers = ("article",) if article_container is not None else ("article", "main", "body")
+    for name in containers:
         if sum(len(p.text) for p in regions[name]) >= _MIN_CONTAINER_CHARS:
             source, paragraphs = name, regions[name]
             break
-    else:
-        if sum(len(p.text) for p in regions["body"]) >= _MIN_CONTAINER_CHARS:
-            source, paragraphs = "body", regions["body"]
     texts = [p.text for p in paragraphs]
     if texts and title and texts[0].strip() == title:
         texts = texts[1:]
     body = clean_text("\n\n".join(texts))
     json_body = clean_text(str(article.get("articleBody") or ""))
-    if len(json_body) > len(body):
+    if article_container is None and len(json_body) > len(body):
         body, source = json_body, "jsonld"
 
     description = clean_text(doc.meta("og:description", "description", "twitter:description"))
     if not body:
+        if article_container is not None:
+            raise ReaderError(ErrorCode.CONTENT_NOT_FOUND, "未在公开文章容器中找到正文")
         if not description:
             raise ReaderError(
                 ErrorCode.CONTENT_NOT_FOUND, "未找到可读正文（页面可能依赖 JavaScript 渲染或为空壳）"
@@ -176,9 +179,12 @@ def parse(html: str, *, source_url: str, options: ReadOptions) -> Extraction:
         extractor_version=VERSION,
         author=clean_text(author),
         published_at=_date(str(article.get("datePublished") or article.get("uploadDate") or ""))
-        or _date(doc.meta("article:published_time", "og:published_time", "pubdate", "date")),
+        or _date(doc.meta("article:published_time", "og:published_time", "pubdate", "publishdate", "date")),
         tags=_keywords(article.get("keywords") or doc.meta("keywords")),
-        media=Media(images=_image_urls(article, doc, source_url)),
+        media=Media(images=(
+            list(dict.fromkeys(urljoin(source_url, image) for image in doc.article_images))
+            if article_container is not None else _image_urls(article, doc, source_url)
+        )),
         canonical_url=canonical,
     )
     if source == "metadata":

@@ -19,6 +19,7 @@ browser = ["playwright>=1.45,<2"]  # Douyin dynamic-render fallback; drives the 
 [project.scripts]
 social-reader = "social_reader.cli:main"
 social-reader-mcp = "social_reader.server:main"
+ai-link-reader-cn-mcp = "social_reader.server:main_domestic"
 
 [tool.setuptools.packages.find]
 where = ["src"]

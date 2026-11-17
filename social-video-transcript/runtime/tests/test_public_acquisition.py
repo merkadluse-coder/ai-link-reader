@@ -4,6 +4,7 @@ import httpx
 
 from social_reader.config import Settings
 from social_reader.fetcher import Fetcher
+from social_reader.router import DOMESTIC_MEDIA_HOSTS
 from social_reader.service import ReaderService
 
 
@@ -11,6 +12,117 @@ def service_for(handler):
     settings = Settings(browser_fallback="off")
     fetcher = Fetcher(settings, transport=httpx.MockTransport(handler), resolver=lambda *_: ["93.184.216.34"])
     return ReaderService(settings, fetcher=fetcher)
+
+
+def test_news_article_reads_the_visible_article_and_keeps_the_share_id():
+    url = "https://baijiahao.baidu.com/s?id=1850090079916367294"
+
+    def handle(request):
+        assert request.headers["host"] == "baijiahao.baidu.com"
+        assert request.url.path == "/s"
+        assert request.url.query == b"id=1850090079916367294"
+        return httpx.Response(200, text="""
+          <title>公开报道</title>
+          <main>
+            <p>相关阅读，不应混入本报道正文。</p>
+            <div data-testid="article" style="display:none">隐藏副本，不应读取</div>
+            <div data-testid="article">
+              <p>这里是文章正文，内容取自来源网页中的文章容器。</p>
+              <p>第二段公开报道应该保留，文章图片也应与正文一起返回。</p>
+              <img data-src="/article-photo.jpg" src="/placeholder.gif">
+              <p hidden>页面模板隐藏文字</p>
+            </div>
+            <img src="/unrelated-photo.jpg">
+          </main>
+        """, headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page(f"分享 {url}&from=app", output="json", include_media=True)
+    assert result["ok"] and result["platform"] == "baijiahao"
+    assert result["source_url"] == url
+    assert result["body_text"] == (
+        "这里是文章正文，内容取自来源网页中的文章容器。\n\n"
+        "第二段公开报道应该保留，文章图片也应与正文一起返回。"
+    )
+    assert result["media"]["images"] == ["https://baijiahao.baidu.com/article-photo.jpg"]
+
+
+def test_domestic_mcp_scope_rejects_non_articles_and_offsite_redirects():
+    requests = []
+
+    def handle(request):
+        requests.append(request.headers["host"])
+        return httpx.Response(302, headers={"location": "https://example.com/unrelated"})
+
+    settings = Settings(allowed_host_suffixes=DOMESTIC_MEDIA_HOSTS)
+    fetcher = Fetcher(settings, transport=httpx.MockTransport(handle), resolver=lambda *_: ["93.184.216.34"])
+    service = ReaderService(settings, fetcher=fetcher, domestic_media_only=True)
+    assert service.read_page("https://www.youtube.com/watch?v=AAAAAAAAAAA")["error_code"] == "INVALID_URL"
+    assert service.read_page("https://news.qq.com/")["error_code"] == "UNSUPPORTED_PLATFORM"
+    assert service.read_page("https://news.qq.com/rain/a/20250515A047NG00")["error_code"] == "INVALID_URL"
+    assert requests == ["news.qq.com"]
+
+
+def test_huanqiu_reads_only_the_public_payload_for_the_requested_article():
+    def handle(request):
+        work = request.url.path.rsplit("/", 1)[-1]
+        return httpx.Response(200, text=f"""
+          <head><title>环球网测试文章</title></head>
+          <div class="data-container" style="visibility:hidden">
+            <textarea class="article-aid">{work if work == 'TestStory1' else 'AnotherStory'}</textarea>
+            <textarea class="article-addltype">article</textarea>
+            <textarea class="article-content">
+              <article><p>这是一条真实文章结构的测试样例，读取时应以文章编号确认返回的内容。</p>
+              <p>文章正文中的图片应保留，页面推荐和导航文字需要排除。</p>
+              <img src="/article-photo.jpg"></article>
+            </textarea>
+          </div>
+          <p>导航与推荐文章，不属于当前作品。</p>
+        """, headers={"content-type": "text/html"})
+
+    service = service_for(handle)
+    result = service.read_page("https://china.huanqiu.com/article/TestStory1", include_media=True)
+    assert result["ok"] and result["platform"] == "huanqiu"
+    assert "导航与推荐文章" not in result["body_text"]
+    assert result["media"]["images"] == ["https://china.huanqiu.com/article-photo.jpg"]
+    wrong_work = service.read_page("https://china.huanqiu.com/article/MissingStory")
+    assert not wrong_work["ok"] and wrong_work["error_code"] == "CONTENT_NOT_FOUND"
+
+
+def test_zaker_share_keeps_only_the_article_id_and_checks_the_redirected_work():
+    work = "a" * 24
+    other_work = "b" * 24
+
+    def handle(request):
+        if request.headers["host"] == "app.myzaker.com":
+            assert request.url.query == f"pk={work}".encode()
+            return httpx.Response(302, headers={"location": f"https://www.myzaker.com/article/{other_work}"})
+        return httpx.Response(200, text='<div id="content">和原链接无关的文章</div>',
+                              headers={"content-type": "text/html"})
+
+    result = service_for(handle).read_page(f"https://app.myzaker.com/news/article.php?pk={work}&from=app")
+    assert not result["ok"] and result["error_code"] == "CONTENT_NOT_FOUND"
+
+
+def test_jike_returns_only_the_requested_original_post_and_its_images():
+    work = "c" * 24
+    requested_image = "https://cdnv2.ruguoapp.com/requested.jpg"
+    post = {
+        "id": work, "type": "ORIGINAL_POST", "status": "NORMAL", "content": "这是一条短动态",
+        "user": {"screenName": "公开昵称"}, "pictures": [{"picUrl": requested_image}],
+    }
+    state = {"props": {"pageProps": {"post": post, "comments": [{"content": "评论，非正文"}]}}}
+
+    def handle(request):
+        assert request.url.query == b""
+        return httpx.Response(200, text=f'<script id="__NEXT_DATA__">{json.dumps(state)}</script>',
+                              headers={"content-type": "text/html"})
+
+    service = service_for(handle)
+    result = service.read_page(f"https://m.okjike.com/originalPosts/{work}?s=tracking", include_media=True)
+    assert result["ok"] and result["author"] == "公开昵称" and result["body_text"] == "这是一条短动态"
+    assert result["media"]["images"] == [requested_image]
+    post["status"] = "DELETED"
+    assert not service.read_page(f"https://m.okjike.com/originalPosts/{work}")["ok"]
 
 
 def test_kuaishou_short_link_only_returns_media_for_the_requested_work():

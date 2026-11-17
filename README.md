@@ -8,6 +8,40 @@
 
 把公开的社媒、视频和在线文档链接交给 AI 助手，读取正文并按需保存文字和可获取的图片、音视频。
 
+## 国内社媒与新闻 MCP
+
+`ai-link-reader-cn-mcp` 可接入 AnythingLLM Desktop 和其他支持 stdio 的 MCP 客户端。它接收一条公开作品链接或 App 分享文字，返回正文、来源、读取提示，以及按需提供的图片或音视频地址。
+
+- **社媒与视频**：沿用小红书、微信公众号、微博、抖音、快手、B 站、今日头条和西瓜视频的现有入口。即刻的公开原创动态已验证正文、作者和单帖配图地址。
+- **新闻文章**：已用公开文章跑通新华网、人民网（含人民日报电子版）、央视网、中新网、央广网、光明网、环球网、澎湃新闻、新京报、南方都市报、新浪新闻、凤凰网、腾讯新闻、网易新闻、搜狐新闻、ZAKER、界面新闻、第一财经、财联社和 36 氪。
+- **受限样本**：财新返回可见预览并标记 `PREVIEW_ONLY`。百家号样本在普通网页请求中返回正文，MCP 实测跳转到访问验证页，因此列为受限入口。
+
+在 `social-video-transcript/runtime` 目录安装，然后打开 AnythingLLM 的 **Settings → Agent Skills**。
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[browser]'
+```
+
+在 AnythingLLM 的 `plugins/anythingllm_mcp_servers.json` 中加入以下条目。把 `command` 改为本机虚拟环境的绝对路径，并在 Agent Skills 页面点 **Refresh**。如果已有其他 MCP 服务，把新条目加进已有的 `mcpServers`。
+
+```json
+{
+  "mcpServers": {
+    "ai-link-reader-cn": {
+      "command": "/absolute/path/to/ai-link-reader/social-video-transcript/runtime/.venv/bin/ai-link-reader-cn-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+试用时可以在 Agent 对话里粘贴一条[新华网文章](https://www.news.cn/politics/20260819/edfbbc89e3034c9e840ebb5dcbe19a33/c.html)或[腾讯新闻文章](https://news.qq.com/rain/a/20250515A047NG00)，请它读取正文并标注来源。配置说明见 [AnythingLLM Desktop MCP 文档](https://docs.anythingllm.com/mcp-compatibility/desktop)。
+
+也可以用这些已测入口复验。[环球网正文](https://china.huanqiu.com/article/4MPB5rzPsd8)、[即刻图文](https://m.okjike.com/originalPosts/64d4d47baac630c848fc643c)、[ZAKER 网页直链](https://www.myzaker.com/article/6afbd00432ce401a68000003)、[ZAKER App 分享页](https://app.myzaker.com/news/article.php?pk=6afbd00432ce401a68000003)。
+
+默认使用系统 DNS。如果本机代理以 Fake-IP 方式返回占位地址，可在此 MCP 条目的 `env` 加入 `SOCIAL_READER_DOH_URL`，值为可访问的 [HTTPS JSON DNS 地址](https://developers.google.com/speed/public-dns/docs/doh/json)（例如 `https://dns.google/resolve`）。该解析器会收到请求中的域名。如果 DNS 服务本身需经 HTTP 代理才能访问，在此 MCP 条目的 `env` 中为它设置 `HTTPS_PROXY`。读取器会验证解析结果和每次跳转。
+
 ## 安装和使用
 
 将 `social-video-transcript/` 放入客户端的 Skills 目录，按[安装说明](social-video-transcript/references/setup.md)安装本地读取器。然后在助手里粘贴链接，例如“读取这篇公众号文章，概括正文”或“看看这条视频链接能否取到媒体”。
@@ -64,6 +98,14 @@
 ## English
 
 AI Link Reader is an Agent Skill for reading public social-media posts, videos, articles, and document links. It extracts available text and media references from web URLs and app share text.
+
+## Chinese media MCP
+
+The `ai-link-reader-cn-mcp` stdio server works with MCP clients such as AnythingLLM Desktop. Its `read_public_media` tool accepts a public Chinese social or news link, including a URL pasted inside app share text. It returns readable text, the source URL, and retrieval notices. Set `include_media` to request available media URLs.
+
+The domestic server includes the existing Xiaohongshu, WeChat Official Accounts, Weibo, Douyin, Kuaishou, Bilibili, Toutiao and Xigua routes. A public Jike original post returned text, the author and image URLs. Live article samples passed for Xinhua, People's Daily (including the digital newspaper), CCTV, China News Service, CNR, Guangming, Huanqiu, The Paper, Beijing News, Southern Metropolis Daily, Sina, Ifeng, Tencent News, NetEase, Sohu, ZAKER, Jiemian, Yicai, CLS and 36Kr. Caixin is marked as a preview. Baijiahao served the article through a regular web request and redirected the MCP request to an access check.
+
+Use the [installation and example configuration above](#国内社媒与新闻-mcp). AnythingLLM Desktop reads the server configuration from `plugins/anythingllm_mcp_servers.json`. Refresh **Settings → Agent Skills** to load it. [AnythingLLM Desktop MCP documentation](https://docs.anythingllm.com/mcp-compatibility/desktop)
 
 ### Install and use
 

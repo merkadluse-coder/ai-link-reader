@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import ModuleType
 from urllib.parse import urlsplit
 
-from .extractors import bilibili, chinese_docs, documents, douyin, generic, global_social, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, xhs, youtube, yuque
+from .extractors import bilibili, chinese_docs, chinese_media, documents, douyin, generic, global_social, jike, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, xhs, youtube, yuque
 from .security import host_matches
 
 # P1 platforms: recognised, but read with the generic reader until their parsers ship.
@@ -21,10 +21,22 @@ PENDING_PLATFORMS: dict[str, tuple[str, ...]] = {
 PLATFORM_LABELS = {
     "xhs": "小红书", "douyin": "抖音", "kuaishou": "快手", "toutiao": "今日头条",
     "bilibili": "哔哩哔哩", "wechat": "微信公众号", "generic": "网页",
-    "weibo": "微博", "xigua": "西瓜视频", "youtube": "YouTube",
+    "weibo": "微博", "xigua": "西瓜视频", "youtube": "YouTube", "jike": "即刻",
     "telegram": "Telegram", "snapchat": "Snapchat", "yuque": "语雀",
     "shimo": "石墨文档", "wps": "金山文档", "tencent_docs": "腾讯文档", "google_docs": "Google 文档", "google_scholar": "Google 学术", "baidu_wenku": "百度文库",
+    **{name: site.label for name, site in chinese_media.SITES.items()},
 }
+
+DOMESTIC_MEDIA_PLATFORMS = frozenset({
+    "xhs", "douyin", "toutiao", "bilibili", "wechat", "kuaishou", "weibo", "xigua", "jike",
+    *chinese_media.SITES,
+})
+DOMESTIC_MEDIA_HOSTS = (
+    *xhs.HOST_SUFFIXES, *douyin.HOST_SUFFIXES, *toutiao.HOST_SUFFIXES, *toutiao.VOD_HOSTS,
+    *bilibili.HOST_SUFFIXES, *wechat.HOST_SUFFIXES, *kuaishou.HOST_SUFFIXES, kuaishou.SHARE_REDIRECT_HOST,
+    *weibo.HOST_SUFFIXES, "m.weibo.cn", *xigua.HOST_SUFFIXES, *jike.HOST_SUFFIXES,
+    *(host for site in chinese_media.SITES.values() for host in site.hosts),
+)
 
 
 @dataclass(frozen=True)
@@ -50,8 +62,12 @@ def route(url: str) -> Route:
         return Route("kuaishou", kuaishou)
     if weibo.post_id(url):
         return Route("weibo", weibo)
+    if jike.post_id(url):
+        return Route("jike", jike)
     if xigua.is_video_link(url):
         return Route("xigua", xigua)
+    if article_platform := chinese_media.identify(url):
+        return Route(article_platform, chinese_media)
     if youtube.video_id(url):
         return Route("youtube", youtube)
     if telegram.post_id(url):
