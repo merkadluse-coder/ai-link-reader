@@ -11,7 +11,7 @@ from typing import Any
 from .audit import audit_event, get_logger
 from .browser import ChromeRenderer, Renderer, playwright_installed
 from .config import Settings
-from .extractors import bilibili, chinese_docs, chinese_media, documents, douyin, global_social, jike, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, youtube, yuque
+from .extractors import bilibili, chinese_media, documents, douyin, global_social, jike, kuaishou, snapchat, telegram, toutiao, wechat, weibo, xigua, youtube, yuque
 from .errors import ErrorCode, ReaderError
 from .extractors.common import CN_TZ, ReadOptions
 from .fetcher import Fetcher
@@ -110,12 +110,6 @@ class ReaderService:
             renderer = self.renderer
             if chosen.extractor is global_social and isinstance(renderer, ChromeRenderer):
                 renderer = ChromeRenderer(global_social.HOSTS[chosen.platform], timeout_seconds=self.settings.browser_timeout_seconds)
-            if chosen.extractor is chinese_docs and isinstance(renderer, ChromeRenderer):
-                renderer = ChromeRenderer(
-                    chinese_docs.HOSTS[chosen.platform], timeout_seconds=self.settings.browser_timeout_seconds,
-                    max_loads=1, settle_seconds=8,
-                    device="Desktop Chrome" if chosen.platform == "tencent_docs" else "Pixel 7",
-                )
             extraction, fetched = chosen.extractor.read(
                 url, self.fetcher, options, renderer=renderer
             )
@@ -131,7 +125,7 @@ class ReaderService:
             if extracted:
                 extraction.warn("URL_EXTRACTED", "输入是一段分享文字，已从中提取第一个链接读取")
             canonical_extractors = (toutiao, douyin, bilibili, wechat, kuaishou, weibo, jike, xigua, youtube,
-                                    yuque, telegram, snapchat, global_social, documents, chinese_docs, chinese_media)
+                                    yuque, telegram, snapchat, global_social, documents, chinese_media)
             cited = extraction.canonical_url if chosen.extractor in canonical_extractors else None
             result = self._success(extraction, cited or url, result_id, fetched_at, options, output)
         except ReaderError as error:
@@ -168,13 +162,7 @@ class ReaderService:
         limit = self.settings.max_body_chars
         if len(body) > limit:
             body = body[:limit].rstrip() + "…"
-            if ex.content_scope == "outline":
-                ex.warn("OUTLINE_TRUNCATED", f"大纲超过 {limit} 字，已截断")
-            else:
-                ex.warn("BODY_TRUNCATED", f"文字超过 {limit} 字，已截断，结论可能不完整")
-        outline = body if ex.content_scope == "outline" else None
-        if outline is not None:
-            body = ""
+            ex.warn("BODY_TRUNCATED", f"正文超过 {limit} 字，已截断，结论可能不完整")
         transcript: dict[str, Any] | None = None
         adapter = _TRANSCRIPT_EXTRACTORS.get(ex.extractor_version)
         if ex.type == "video" and options.include_transcript and adapter is not None:
@@ -208,7 +196,7 @@ class ReaderService:
             "type": ex.type,
             "title": ex.title,
             "summary": _excerpt(body),
-            "summary_kind": "none" if outline is not None else "excerpt",
+            "summary_kind": "excerpt",
             "author": ex.author,
             "published_at": ex.published_at.isoformat() if ex.published_at else None,
             "stats": ex.stats.to_dict(),
@@ -223,10 +211,6 @@ class ReaderService:
             "warnings": [w.to_dict() for w in ex.warnings],
             "body_text": body,
         }
-        if ex.content_scope:
-            result["content_scope"] = ex.content_scope
-        if outline is not None:
-            result["outline_text"] = outline
         if options.include_comments:
             result["comments"] = [{"content": c.content, "likes": c.likes} for c in ex.comments]
         if transcript is not None:

@@ -418,49 +418,25 @@ def test_download_media_checks_redirects_and_never_overwrites(tmp_path):
     assert not list(tmp_path.glob("image-002*"))
 
 
-def test_document_extractor_separates_editor_and_outline():
-    from social_reader.extractors.chinese_docs import _text
-
-    shimo = '<div>目录</div><div class="hk-editor-content"><p>正文</p><p>第二段</p></div>'
-    wps = '<svg><g id="main-content"><text>第一行</text><text>第二行</text></g><g>工具栏</g></svg>'
-    qq = '<div class="headline-content"><div class="headline">第一章</div></div><div>评论</div>'
-    assert _text(shimo, "shimo") == "正文\n第二段"
-    assert _text(wps, "wps") == "第一行\n第二行"
-    assert _text(qq, "tencent_docs") == "第一章"
-
-
-def test_partial_document_results_are_labeled_in_json_markdown_and_saved_files(tmp_path):
-    from social_reader.cli import _save
-
-    pages = {
-        "https://docs.qq.com/doc/ExampleQQ": (
-            '<div class="headline-content"><div class="headline">第一章</div></div>',
-            "outline",
-            "outline.txt",
-            "## 文档大纲（未获取正文）",
-        ),
-        "https://kdocs.cn/l/ExampleWPS": (
-            '<svg><g id="main-content"><text>已加载的一页</text></g></svg>',
-            "visible_text",
-            "visible-text.txt",
-            "## 已加载文档文字（可能不完整）",
-        ),
+def test_retired_document_previews_stop_before_fetching_the_document():
+    retired = {
+        "https://shimo.im/docs/ExampleShimo": "石墨文档",
+        "https://365.kdocs.cn/l/ExampleWPS": "金山文档",
+        "https://docs.qq.com/doc/ExampleQQ": "腾讯文档",
     }
+    requests = []
 
-    class PreviewRenderer:
-        def render(self, url, *, ready):
-            return pages[url][0]
+    def handle(request):
+        requests.append(request.headers["host"])
+        return httpx.Response(302, headers={"location": "https://docs.qq.com/doc/ExampleQQ"})
 
-    service = ReaderService(renderer=PreviewRenderer())
-    for url, (_, scope, filename, heading) in pages.items():
-        result = service.read_page(url)
-        assert result["ok"] and result["content_scope"] == scope
-        assert heading in result["body_markdown"]
-        assert "## 正文" not in result["body_markdown"]
-        saved = _save(result, tmp_path / scope, service, download_media=False)
-        assert saved == [{"kind": scope, "file": filename}]
-        assert (tmp_path / scope / filename).read_text(encoding="utf-8").strip()
-        assert not (tmp_path / scope / "body.txt").exists()
-        if scope == "outline":
-            assert result["outline_text"] == "第一章"
-            assert result["body_text"] == result["summary"] == ""
+    service = service_for(handle)
+    for url, platform in retired.items():
+        result = service.read_page(f"公开链接 {url}")
+        assert not result["ok"] and result["error_code"] == "UNSUPPORTED_PLATFORM"
+        assert platform in result["message"] and "已下线" in result["message"]
+    assert requests == []
+
+    result = service.read_page("https://example.com/share")
+    assert result["error_code"] == "UNSUPPORTED_PLATFORM"
+    assert requests == ["example.com"]

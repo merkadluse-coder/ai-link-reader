@@ -22,6 +22,11 @@ from .errors import ErrorCode, ReaderError
 MAX_URL_LENGTH = 2048
 ALLOWED_PORTS = {None, 80, 443, 8080, 8443}
 BLOCKED_HOST_SUFFIXES = ("localhost", "local", "internal", "intranet", "lan", "home.arpa")
+_RETIRED_DOCUMENT_HOSTS = {
+    "shimo.im": "石墨文档",
+    "kdocs.cn": "金山文档",
+    "docs.qq.com": "腾讯文档",
+}
 
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 Resolver = Callable[[str, int], list[str]]
@@ -82,6 +87,9 @@ def validate_url(raw: str, allowed_host_suffixes: tuple[str, ...] = ()) -> Valid
     literal = _parse_ip(host)
     if literal is not None and not is_public_ip(literal):
         raise _invalid("拒绝访问内网、本机或云元数据地址")
+    for suffix, platform in _RETIRED_DOCUMENT_HOSTS.items():
+        if host_matches(host, (suffix,)):
+            raise ReaderError(ErrorCode.UNSUPPORTED_PLATFORM, f"{platform}链接读取已下线，请使用平台导出的文档")
     if allowed_host_suffixes and not host_matches(host, allowed_host_suffixes):
         raise _invalid("该域名不在允许清单内")
     effective_port = port or (443 if scheme == "https" else 80)

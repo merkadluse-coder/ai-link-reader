@@ -71,13 +71,7 @@ python3 -m venv .venv
 
 只读取可公开访问的内容。入口能否读取取决于作品状态和平台要求。视频描述是作者提供的文字，图片文字和视频口播可分别交由外部 OCR 和 ASR 服务处理。基础读取无需模型或云端识别账户。
 
-### 实验性文档预览
-
-以下入口需要运行读取器的机器安装 Chrome 和 Playwright。CLI 和通用 MCP 的 `read_page` 可以试读，国内媒体 MCP 的 `read_public_media` 面向社媒与新闻。
-
-- **石墨文档** · 公开 `shimo.im/docs/…` 样本曾读到编辑区文字，部分样本可能读不到。返回成功时标记 `content_scope: visible_text`。
-- **金山文档** · 公开 `kdocs.cn/l/…` 分享页有机会返回浏览器当前加载的文字，标记 `content_scope: visible_text`。同一链接复测可能失败，分页和未加载内容也可能缺失。
-- **腾讯文档** · 公开 `docs.qq.com/doc/…` 样本只验证了可见大纲。结果标记 `content_scope: outline`，大纲放在 `outline_text`，正文为空。
+石墨文档、金山文档和腾讯文档的链接预览已下线。读取这些链接会返回 `UNSUPPORTED_PLATFORM`，可以从原平台导出有权访问的文档。
 
 ## 保存文字和媒体
 
@@ -87,7 +81,7 @@ python3 -m venv .venv
 .venv/bin/social-reader read --save-dir ./saved-example --download-media -- 'https://t.me/telegram/393'
 ```
 
-正文保存在 `body.txt`，实验性文档预览根据类型保存为 `visible-text.txt` 或 `outline.txt`。媒体按类型编号保存。提取过程会剔除可识别的页面导航等杂项，正文中的推广内容可能保留。图片和视频使用平台返回的可用地址，能否取得原图或完整媒体取决于平台；当前不保证原图。单个媒体上限为 250 MiB，已有同名文件不会被覆盖。只保存文字时省略 `--download-media`。
+正文保存在 `body.txt`，媒体按类型编号保存。提取过程会剔除可识别的页面导航等杂项，正文中的推广内容可能保留。图片和视频使用平台返回的可用地址，能否取得原图或完整媒体取决于平台；当前不保证原图。单个媒体上限为 250 MiB，已有同名文件不会被覆盖。只保存文字时省略 `--download-media`。
 
 ## 提交平台需求
 
@@ -132,13 +126,7 @@ Copy the `social-video-transcript/` folder into your client's Skills directory a
 
 Access depends on each document or post and its sharing settings. OCR and ASR can be supplied by separate processors. The repository's [MIT license](LICENSE) covers the open-source reader.
 
-### Experimental document previews
-
-These previews require Chrome and Playwright on the machine running the reader. Use the CLI or the general MCP `read_page` tool. The domestic media MCP tool covers social and news links.
-
-- **Shimo** — public `shimo.im/docs/…` links may return loaded editor text as `content_scope: visible_text`. Some samples return no text.
-- **WPS / KDocs** — public `kdocs.cn/l/…` share pages may return loaded text as `content_scope: visible_text`. The same link can fail on repeat attempts, and unloaded pages can be missing.
-- **Tencent Docs** — tested public `docs.qq.com/doc/…` links returned the visible outline. Results have `content_scope: outline` and `outline_text`, with an empty body.
+Shimo, WPS / KDocs, and Tencent Docs link previews have been retired. The reader returns `UNSUPPORTED_PLATFORM` for those links. Export documents you can access from their original platforms.
 
 ### Save text and media
 
@@ -148,7 +136,7 @@ From the Skill's `runtime/` directory, run:
 .venv/bin/social-reader read --save-dir ./saved-example --download-media -- 'https://t.me/telegram/393'
 ```
 
-The reader saves body text to `body.txt` and experimental document previews to `visible-text.txt` or `outline.txt`. It numbers available media files. Extraction removes recognizable navigation and page clutter. Promotional content within the source may remain. Files use the available source URLs, so original-image quality depends on the platform. Each media file is limited to 250 MiB and existing filenames are preserved. Omit `--download-media` to save text only.
+The reader saves extracted text to `body.txt` and numbers available media files. Extraction removes recognizable navigation and page clutter. Promotional content within the source may remain. Files use the available source URLs, so original-image quality depends on the platform. Each media file is limited to 250 MiB and existing filenames are preserved. Omit `--download-media` to save text only.
 
 ### Request a platform
 
